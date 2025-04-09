@@ -62,9 +62,3 @@ The main configuration file is `src/main/resources/application.properties`. Data
 *(This section will be filled in as APIs are developed)*
 
 ---
-
-You can add this initial `README.md` content to your project. As you develop, we will update, especially the API endpoints section.
-
-**What to do now?**
-
-Now that we have taken the first step for the documentation, should we return to coding? My suggestion is to **create our first Entity class, `User`** and **add Javadoc comments** for this class. In this way, we both write code and create in-code documentation. Is that ok?
