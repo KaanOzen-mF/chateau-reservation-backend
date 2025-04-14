@@ -7,13 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController // Rest Controller ve @ResponseBody'yi birleştirir
-@RequestMapping("api/users") //Bu controller için tüm endpoint'lerin temel URL'si
+@RequestMapping("/api/user") //Bu controller için tüm endpoint'lerin temel URL'si
 @RequiredArgsConstructor // Lombok: Constructor injection için gerekli olan final alanları otomatik olarak oluşturur
 public class UserController {
     private final UserService userService;
@@ -34,4 +31,6 @@ public class UserController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
     }
+
+
 }
