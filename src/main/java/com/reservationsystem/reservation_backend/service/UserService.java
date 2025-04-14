@@ -2,6 +2,7 @@ package com.reservationsystem.reservation_backend.service;
 
 
 import com.reservationsystem.reservation_backend.entity.User;
+import com.reservationsystem.reservation_backend.exception.ResourceAlreadyExistsException;
 import com.reservationsystem.reservation_backend.repo.UserRepo;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,7 @@ public class UserService {
         Optional<User> existingUser = userRepo.findByEmail(user.getEmail());
 
         if(existingUser.isPresent()){
-            throw new RuntimeException("This email already exists");
+            throw new ResourceAlreadyExistsException("This email already exists");
         }
         // Parolayı şifrele(2)
         user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -49,7 +50,7 @@ public class UserService {
      * @param email Aranan kullanıcının e-posta adresi.
      * @return Kullanıcıyı içeren bir Optional, bulunamazsa boş Optional.
      */
-    @Transactional // Bu metot sadece okuma işlemi yapar
+    @Transactional
     public Optional<User> findUserByEmail(String email){
         return userRepo.findByEmail(email);
     }
