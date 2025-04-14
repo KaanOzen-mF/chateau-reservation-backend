@@ -1,19 +1,31 @@
 package com.reservationsystem.reservation_backend.config;
 
+import com.reservationsystem.reservation_backend.service.UserDetailsServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer; // CSRF disable için modern yol
+import org.springframework.security.config.http.SessionCreationPolicy; // Stateless session için
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+// import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // JWT filtresi daha sonra eklenecek
+
+
 
 /**
  * Spring Security ile ilgili yapılandırma ayarlarını içeren sınıf.
  */
 @Configuration // Bu sınıfın Spring yapılandırma sınıfı olduğunu belirtir
 @EnableWebSecurity // Spring Security web desteğini aktif eder
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     /**
@@ -26,40 +38,55 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // private final JwtAuthenticationFilter jwtAuthFilter; // Daha sonra eklenecek JWT filtresi
+    private final UserDetailsServiceImpl userDetailsService; // Kendi UserDetailsService implementasyonumuz
+
     /**
-     * HTTP Güvenlik kurallarını yapılandıran SecurityFilterChain bean'ini tanımlar.
-     * Hangi endpoint'lerin herkese açık olacağını, hangilerinin kimlik doğrulaması gerektireceğini belirler.
-     *
-     * @param http HttpSecurity nesnesi, güvenlik kurallarını yapılandırmak için kullanılır.
-     * @return Yapılandırılmış SecurityFilterChain nesnesi.
-     * @throws Exception Yapılandırma sırasında bir hata oluşursa.
+     * Ana güvenlik filtresi zincirini yapılandırır.
+     * Hangi endpoint'lerin public, hangilerinin korumalı olacağını,
+     * session yönetimini ve CSRF korumasını ayarlar.
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // CSRF (Cross-Site Request Forgery) korumasını devre dışı bırakıyoruz.
-                // REST API'ler genellikle stateless olduğu ve token tabanlı kimlik doğrulama kullandığı için
-                // CSRF koruması genellikle gereksizdir veya farklı yöntemlerle sağlanır.
-                // Tarayıcı tabanlı session yönetimi kullanılıyorsa etkinleştirilmelidir.
-                .csrf(AbstractHttpConfigurer::disable) // Yeni yöntem (lambda DSL)
-
-                // HTTP istekleri için yetkilendirme kurallarını yapılandırıyoruz.
-                .authorizeHttpRequests(authorizeRequests ->
-                        authorizeRequests
-                                // /api/users/register endpoint'ine gelen tüm isteklere (authenticated veya unauthenticated) izin ver.
-                                .requestMatchers("/api/users/register").permitAll()
-                                // TODO: Login endpoint'i eklendiğinde buraya "/api/users/login" de eklenmeli.
-                                // TODO: Swagger/OpenAPI endpoint'leri eklendiğinde onlar da buraya eklenebilir (örn: /v3/api-docs/**, /swagger-ui/**)
-
-                                // Yukarıda belirtilenler dışındaki TÜM diğer isteklilerin kimlik doğrulaması (authenticated) gerektirmesini sağla.
-                                .anyRequest().authenticated()
-                );
-        // Varsayılan olarak gelen form login ve http basic auth gibi mekanizmalar
-        // JWT implemente edildiğinde genellikle devre dışı bırakılır veya özelleştirilir.
-        // Şimdilik varsayılan ayarlarla bırakabiliriz veya .httpBasic(withDefaults()) gibi açıkça belirtebiliriz.
+                // CSRF korumasını devre dışı bırak (Stateless API'ler için yaygın)
+                .csrf(AbstractHttpConfigurer::disable)
+                // Yetkilendirme kuralları
+                .authorizeHttpRequests(auth -> auth
+                        // /api/auth/** (login, register vb.) ve /api/users/register endpoint'lerine herkes erişebilir
+                        .requestMatchers("/api/auth/**", "/api/user/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/user/register").permitAll()
+                        // Diğer tüm istekler kimlik doğrulaması gerektirir
+                        .anyRequest().authenticated()
+                )
+                // Session yönetimini STATELESS yap (JWT kullandığımız için session tutmayacağız)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Kullanılacak AuthenticationProvider'ı ayarla
+                .authenticationProvider(authenticationProvider());
+        // .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class); // JWT filtresini daha sonra ekleyeceğiz
 
         return http.build();
     }
-    // Not: Spring Security'nin diğer yapılandırmaları (HTTP güvenliği,
-    // yetkilendirme kuralları vb.) daha sonra bu sınıfa eklenecektir.
+
+    /**
+     * Kimlik doğrulama yöneticisini (AuthenticationManager) bean olarak expose eder.
+     * Login işlemi için Controller'da kullanılır.
+     */
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    /**
+     * Kimlik doğrulama sağlayıcısını (AuthenticationProvider) yapılandırır.
+     * UserDetailsService ve PasswordEncoder'ı kullanır.
+     */
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService); // Kendi UserDetailsService'imizi ayarla
+        authProvider.setPasswordEncoder(passwordEncoder()); // Parola şifreleyiciyi ayarla
+        return authProvider;
+    }
+
 }
