@@ -1,5 +1,6 @@
 package com.reservationsystem.reservation_backend.config;
 
+import com.reservationsystem.reservation_backend.security.JwtAuthenticationFilter;
 import com.reservationsystem.reservation_backend.service.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,7 @@ import org.springframework.security.config.http.SessionCreationPolicy; // Statel
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 // import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // JWT filtresi daha sonra eklenecek
 
 
@@ -28,6 +30,10 @@ import org.springframework.security.web.SecurityFilterChain;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final JwtAuthenticationFilter jwtAuthFilter; // JWT kimlik doğrulama filtresi
+    // private final JwtAuthenticationFilter jwtAuthFilter; // Daha sonra eklenecek JWT filtresi
+    private final UserDetailsServiceImpl userDetailsService; // Kendi UserDetailsService implementasyonumuz
+
     /**
      * Parola şifreleme için kullanılacak PasswordEncoder bean'ini oluşturur.
      * BCrypt, güçlü bir hash algoritmasıdır ve yaygın olarak tavsiye edilir.
@@ -37,9 +43,6 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    // private final JwtAuthenticationFilter jwtAuthFilter; // Daha sonra eklenecek JWT filtresi
-    private final UserDetailsServiceImpl userDetailsService; // Kendi UserDetailsService implementasyonumuz
 
     /**
      * Ana güvenlik filtresi zincirini yapılandırır.
@@ -62,7 +65,8 @@ public class SecurityConfig {
                 // Session yönetimini STATELESS yap (JWT kullandığımız için session tutmayacağız)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Kullanılacak AuthenticationProvider'ı ayarla
-                .authenticationProvider(authenticationProvider());
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         // .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class); // JWT filtresini daha sonra ekleyeceğiz
 
         return http.build();
@@ -88,5 +92,8 @@ public class SecurityConfig {
         authProvider.setPasswordEncoder(passwordEncoder()); // Parola şifreleyiciyi ayarla
         return authProvider;
     }
+
+
+
 
 }
