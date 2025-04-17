@@ -56,10 +56,15 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 // Yetkilendirme kuralları
                 .authorizeHttpRequests(auth -> auth
-                        // /api/auth/** (login, register vb.) ve /api/users/register endpoint'lerine herkes erişebilir
-                        .requestMatchers("/api/auth/**", "/api/user/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/user/register").permitAll()
-                        // Diğer tüm istekler kimlik doğrulaması gerektirir
+                        // Public endpointler:
+                        .requestMatchers("/api/auth/**", "/api/user/register").permitAll() // register yolunu kontrol et!
+                        // YENİ: Sadece /api/chateaus için GET isteklerine izin ver (filtreleme dahil)
+                        .requestMatchers(HttpMethod.GET, "/api/chateaus").permitAll()
+                        // Chateau'ları değiştirmek için kimlik doğrulaması iste:
+                        .requestMatchers(HttpMethod.POST, "/api/chateaus").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/chateaus/**").authenticated() // ID hala PUT/DELETE için gerekli
+                        .requestMatchers(HttpMethod.DELETE, "/api/chateaus/**").authenticated() // ID hala PUT/DELETE için gerekli
+                        // Diğer tüm istekler kimlik doğrulaması gerektirir:
                         .anyRequest().authenticated()
                 )
                 // Session yönetimini STATELESS yap (JWT kullandığımız için session tutmayacağız)
