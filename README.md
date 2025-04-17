@@ -124,7 +124,7 @@ The project follows a standard layered architecture within the base package `com
 
 This backend API serves the frontend application located at:
 
-* **Frontend Repository:** `https://github.com/KaanOzen-mF/chateau-reservation-frontend` # Replace with your frontend repository URL
+* **Frontend Repository:** `https://github.com/KaanOzen-mF/chateau-reservation-frontend` 
 
 ---
 
