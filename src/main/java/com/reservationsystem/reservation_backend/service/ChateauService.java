@@ -15,30 +15,27 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j // loglama işlemleri için
+@Slf4j
 public class ChateauService {
 
     private final ChateauRepo chateauRepo;
 
-    // Sistemdeki tüm şatoları getirir
-    @Transactional
+    @Transactional(readOnly = true)
     public List<Chateau> getAllChateaus() {
         log.info("Fetching all chateaus");
         return chateauRepo.findAll();
     }
 
-    @Transactional
-    public List<Chateau> getChateausByTheme(String theme){
-        if (!StringUtils.hasText(theme)){
-            log.warn("Attempted to fetch chateaus with empty theme");
+    @Transactional(readOnly = true)
+    public List<Chateau> getChateausByTheme(String theme) {
+        if (!StringUtils.hasText(theme)) {
+            log.warn("Attempted to search chateaus with empty theme.");
             return Collections.emptyList();
         }
-        log.info("Fetching chateaus with theme {}", theme);
+        log.info("Fetching chateaus with theme: {}", theme);
         return chateauRepo.findByThemeIgnoreCase(theme);
     }
 
-
-    //Yeni bir şato oluşturur.
     @Transactional
     public Chateau createChateau(Chateau chateau) {
         log.info("Creating new chateau with name: {}", chateau.getChateauName());
@@ -46,77 +43,65 @@ public class ChateauService {
         return chateauRepo.save(chateau);
     }
 
-    /**
-     * Mevcut bir şatoyu günceller.
-     */
     @Transactional
     public Chateau updateChateau(Long id, Chateau chateauDetails) {
         log.info("Updating chateau with id: {}", id);
-        // !!! getChateauById yerine doğrudan findById kullanıyoruz !!!
         Chateau existingChateau = chateauRepo.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Chateau not found with id for update: {}", id);
-                    return new ResourceNotFoundException("Chateau not found with id: " + id);
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("Chateau not found with id: " + id));
 
-        // Alanları güncelle
+        // Alanları güncelle (String alanlar)
         existingChateau.setChateauName(chateauDetails.getChateauName());
         existingChateau.setShortDescription(chateauDetails.getShortDescription());
-        existingChateau.setLongDescription(chateauDetails.getLongDescription());
-        existingChateau.setAddress(chateauDetails.getAddress());
+        existingChateau.setAddress(chateauDetails.getAddress()); // Artık Liste!
         existingChateau.setLatitude(chateauDetails.getLatitude());
         existingChateau.setLongitude(chateauDetails.getLongitude());
         existingChateau.setChateauWebsite(chateauDetails.getChateauWebsite());
         existingChateau.setOpeningHoursInfo(chateauDetails.getOpeningHoursInfo());
-        existingChateau.setTheme(chateauDetails.getTheme()); // theme alanını da güncelle
-        existingChateau.setOverallCapacity(chateauDetails.getOverallCapacity());
-        existingChateau.setPriceRange(chateauDetails.getPriceRange());
         existingChateau.setBreakfastIncluded(chateauDetails.getBreakfastIncluded());
-        existingChateau.setOnSiteActivities(chateauDetails.getOnSiteActivities());
-        existingChateau.setOffSiteActivities(chateauDetails.getOffSiteActivities());
-        existingChateau.setAdditionalInfo(chateauDetails.getAdditionalInfo());
+        existingChateau.setOverallCapacity(chateauDetails.getOverallCapacity());
+        existingChateau.setTheme(chateauDetails.getTheme());
         existingChateau.setHostName(chateauDetails.getHostName());
         existingChateau.setHostAddress(chateauDetails.getHostAddress());
         existingChateau.setHostPhoneNumber(chateauDetails.getHostPhoneNumber());
         existingChateau.setHostEmail(chateauDetails.getHostEmail());
 
-        // Koleksiyonları güncelle (Önce temizle sonra ekle)
-        if (chateauDetails.getSpokenLanguages() != null) {
-            existingChateau.getSpokenLanguages().clear();
-            existingChateau.getSpokenLanguages().addAll(chateauDetails.getSpokenLanguages());
-        }
-        if (chateauDetails.getThingsToKnow() != null) {
-            existingChateau.getThingsToKnow().clear();
-            existingChateau.getThingsToKnow().addAll(chateauDetails.getThingsToKnow());
-        }
+        // Koleksiyonları (List<String>, Set<String>, Map<String, String>) güncelle
+        // (clear/addAll veya clear/putAll yaklaşımı)
+        updateCollection(existingChateau.getLongDescription(), chateauDetails.getLongDescription());
+        updateCollection(existingChateau.getAddress(), chateauDetails.getAddress()); // Adres de liste oldu
+        updateCollection(existingChateau.getSpokenLanguages(), chateauDetails.getSpokenLanguages());
+        updateCollection(existingChateau.getOnSiteActivities(), chateauDetails.getOnSiteActivities());
+        updateCollection(existingChateau.getOffSiteActivities(), chateauDetails.getOffSiteActivities());
+        updateCollection(existingChateau.getThingsToKnow(), chateauDetails.getThingsToKnow());
+        updateCollection(existingChateau.getAdditionalInfo(), chateauDetails.getAdditionalInfo());
+        updateCollection(existingChateau.getPriceRange(), chateauDetails.getPriceRange());
+        updateCollection(existingChateau.getRoomDescriptions(), chateauDetails.getRoomDescriptions());
+        updateCollection(existingChateau.getImageUrls(), chateauDetails.getImageUrls());
+
         if (chateauDetails.getHostSocialMediaLinks() != null) {
             existingChateau.getHostSocialMediaLinks().clear();
             existingChateau.getHostSocialMediaLinks().putAll(chateauDetails.getHostSocialMediaLinks());
         }
-        if (chateauDetails.getRoomDescriptions() != null) {
-            existingChateau.getRoomDescriptions().clear();
-            existingChateau.getRoomDescriptions().addAll(chateauDetails.getRoomDescriptions());
-        }
-        if (chateauDetails.getImageUrls() != null) {
-            existingChateau.getImageUrls().clear();
-            existingChateau.getImageUrls().addAll(chateauDetails.getImageUrls());
-        }
+
 
         return chateauRepo.save(existingChateau);
     }
 
-    //Bir şatoyu siler.
+    // Koleksiyonları güncellemek için yardımcı metot (List ve Set için çalışır)
+    private <T> void updateCollection(Collection<T> existingCollection, Collection<T> newCollection) {
+        if (newCollection != null) {
+            existingCollection.clear();
+            existingCollection.addAll(newCollection);
+        }
+    }
+
 
     @Transactional
     public void deleteChateau(Long id) {
         log.warn("Deleting chateau with id: {}", id);
         Chateau existingChateau = chateauRepo.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Chateau not found with id for delete: {}", id);
-                    return new ResourceNotFoundException("Chateau not found with id: " + id);
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("Chateau not found with id: " + id));
         chateauRepo.delete(existingChateau);
         log.info("Chateau deleted successfully with id: {}", id);
     }
-
 }
